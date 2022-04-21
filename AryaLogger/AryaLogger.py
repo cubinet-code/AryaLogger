@@ -14,60 +14,64 @@ import socket
 import sys
 import tempfile
 from collections import OrderedDict, namedtuple
-from urlparse import urlparse, ResultMixin, parse_qs
+from urllib.parse import urlparse, ResultBase, parse_qs
 from argparse import ArgumentParser
-from SimpleAciUiLogServer import (SimpleAciUiLogServer,
-                                  ThreadingSimpleAciUiLogServer,
-                                  serve_forever)
+from SimpleAciUiLogServer import SimpleAciUiLogServer, ThreadingSimpleAciUiLogServer, serve_forever
 from cobra.mit.naming import Dn
 from arya import arya
 
-SERVER_CERT = """
------BEGIN RSA PRIVATE KEY-----
-MIICXAIBAAKBgQC+oA+hYsF3uBIMt7i1ELfUFnyf4/MKM/Ylmy4yBc0/YhqANXYk
-so3+gAGkgRlv9ODdsFS7KvjzyaT0kjgA3ahDPyvtroAOWsdFdHJvtS4Ek1WI1Bee
-0hNZlTmjQgnjp9ENYl9ImGWghcubJhtse5cJhL9c/hq40do4llZjaaEiCQIDAQAB
-AoGAYbd1K7qPCErAXeqT8aVXRo4cZm4YeSN3y4FH5faZZyNoCE7feCJbrZl6vhQ7
-sOtrldi9JpD5uyaju4d00+TMSoFqnTuAYLg4CEUAkAq2Hgg1EfQfPpC8IgYdR5qQ
-hRu0JArXldch1YLHw8GQGkkZe/cJXiHs/FPjmdUQSsydI50CQQDuEecLrSLjuMpE
-i8xjD9cQxSDTHJFDZttVb08fjaKFJk993TsUR2t/eR92OR5m0CFei/RUyYpUaPbk
-1s3Eau7XAkEAzPtnMMKoGR3qfLqXzfmgLwQA0UbeV8PbxRCkaCnSYcpn0qJH7UtS
-Qjb4X6MPA9bNUnydWFgbPgz4MwKRo0q6HwJAP6DxS6GerZZ6GQ/0NJXLOWQ2fbYo
-7QbUoGT7lMdaJJQ0ssMqQyVDifJpgkOJ6JjAEnD9gJvNKPpU4py2qkSaSQJANngr
-0Jo5XwtDD0fqJPLLbRLsQLBLTxkdoj0s4v0SCahmdGNpJ5ZXUn8W+xryV3vR7bRt
-f1dSTefWYH+zQagO0wJBANlNp79CN7ylgXdrhRVQmBsXHN4G8biUUxMYsfK4Ao/i
-Ga3xtkYLv7OmrtY+Gx6w56Jqxyucaka8VBHK0/7JTLE=
------END RSA PRIVATE KEY-----
+SERVER_CERT = b"""
+-----BEGIN PRIVATE KEY-----
+MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCc306NrF69glHq
+P7mpEA2AgqUbzdUjP7cwACZM5CRxtqDEkwgdX9iUMyhi208CkfJ0GlBQ2l+rEbPX
+/mFqaQ+KwRF76uxWQAJh2ja6cc7Y1odcE87uwmdAuvczk8bVawD8roUbHH409LgU
+O74rqiObA10UBRy8QitifXiWDdDOafp8BNwt6ShrqUu4utIWimzKTPMHadO+zLTC
+y8RI2BG1g8dnPa2TK0u/XbJmdIOawbF85z1GWC4VifwB2LDtRAgbOSy0fybuMG8L
+zrqs6isGnNJCbmxkbtRw2m5gJnSLQDB0gsegE0zuZ8IjSaBycS73DhnpeGAJepeU
+8DVYDiTLAgMBAAECggEACrxJfu6N6UAy5OoJhaVglyvZqsZyUKA6pCFOfbKbP+D0
+rZ82TfRSOQorOGCzzoQ4aHOojW/0XhuvCBgTiJm6A4/k52sTU2+7+gBaAHZrZnF/
+//AnGDXbpRVmd3QkhlR1U9WJrGpNxMf+lPvlrs1M9H3Nb+JNriCFIY9eoj49zPJe
+Sz81MULMI3pCtMqBiQ3vHP7AIm6NYQqZ+sW7yGquhFUEi8YPxF/3t96KtQFyVFm+
+1LDQTG4MR2f5kcUAqncrj8UxTJzpMrTVUqoru0TO6ckkAqZyZp1OuBmcsd9SgekC
+aKexj/vGElvASLyO5uvtihtV/0516KnG63mbHDRI8QKBgQDQ2zMwVC6LtGpK+NrD
+LPkMdHC4Z1rAfdsfR7yjMsWfyK9TURYNTHe7/7h2BxJLHppcnTmikfSxvLxnds9F
+gNCzp6mwTbuk6V1027DmAPRX90affK7NHI2sFIH7nYSZqWq59mqtVmEothLpIFOm
+m+FqwZWq+rLbYomoMoF/tZLCgwKBgQDASDQblbDxZ9ODLCRrok5ps05+e1/3l+71
+AoY4w/c42F1zTKF1jlnT6RHwT9lwmvjb107L5JnI3TZSZyiPW1YL9ttIeHI86vcp
+702ykgP4PdpnwPwfiLzzT5kS1vOSF80ccNiPqToob7VU9aufVx0Rb1sWtXAdj2Kp
+Gw2y2UFiGQKBgClKvSMX8Z/jSoSKEM43rQF+X+7FWFboSxMzHqNxXUsK5UbmqCJ2
+9NExbKnBGifJ5CDdYNC4ZJVjSCh4f+Aw6JIsWsslgyzGipiY+q9ujuB5XfgYMYMR
+2xyjbVNuwBGVQimEA3FDu6/N141Ju+Abv4RYw5trN0NShv6/BYVXQ627AoGAfJxO
+aLISAeCviorI75g4CPhTHlUGVIb6LX59TbxyMzzFEzvOR0kBnfulzH9zAy7rqE1Y
+m3qCz1HNKooAFyeyE/7fDZBBOIlttJeJWviV6gLrz+GZgzYyfdxP742uPDeAjbX0
+IuYg8qOyeGTd3F2wUORBu+3Jwt5xqfYGYqm5XcECgYAnWdE8LD3uLpn8iOObMIi1
+E6r5cBKwsJU0ropaMGEQGs6Fo7DTax19QRVXpEgQXS6OedV2eIlgFGJ0b8akXbdM
+YSLTFvx0Xl4q+5le2EnPJurf9IW+PYlPczlSnLbZQyDAWxHU/ZJUhM5V2Ed/Ymv6
+doytojKYSi9XBL3B5yAHyA==
+-----END PRIVATE KEY-----
 -----BEGIN CERTIFICATE-----
-MIID+jCCA2OgAwIBAgIJALUh5RwHQhJoMA0GCSqGSIb3DQEBBQUAMIGvMQswCQYD
-VQQGEwJVUzELMAkGA1UECBMCQ0ExETAPBgNVBAcTCFNhbiBKb3NlMRUwEwYDVQQK
-EwxhcGlpbnNwZWN0b3IxHTAbBgNVBAsTFFNpbXBsZUFjaVVpTG9nU2VydmVyMSow
-KAYDVQQDEyFTaW1wbGVBY2lVaUxvZ1NlcnZlci5hcGlpbnNwZWN0b3IxHjAcBgkq
-hkiG9w0BCQEWD210aW1tQGNpc2NvLmNvbTAgFw0xNTAxMjMwMDI1NDJaGA8zMDE0
-MDUyNjAwMjU0Mlowga8xCzAJBgNVBAYTAlVTMQswCQYDVQQIEwJDQTERMA8GA1UE
-BxMIU2FuIEpvc2UxFTATBgNVBAoTDGFwaWluc3BlY3RvcjEdMBsGA1UECxMUU2lt
-cGxlQWNpVWlMb2dTZXJ2ZXIxKjAoBgNVBAMTIVNpbXBsZUFjaVVpTG9nU2VydmVy
-LmFwaWluc3BlY3RvcjEeMBwGCSqGSIb3DQEJARYPbXRpbW1AY2lzY28uY29tMIGf
-MA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC+oA+hYsF3uBIMt7i1ELfUFnyf4/MK
-M/Ylmy4yBc0/YhqANXYkso3+gAGkgRlv9ODdsFS7KvjzyaT0kjgA3ahDPyvtroAO
-WsdFdHJvtS4Ek1WI1Bee0hNZlTmjQgnjp9ENYl9ImGWghcubJhtse5cJhL9c/hq4
-0do4llZjaaEiCQIDAQABo4IBGDCCARQwHQYDVR0OBBYEFN2EqumA49KSEPjLLSni
-UtKth4zQMIHkBgNVHSMEgdwwgdmAFN2EqumA49KSEPjLLSniUtKth4zQoYG1pIGy
-MIGvMQswCQYDVQQGEwJVUzELMAkGA1UECBMCQ0ExETAPBgNVBAcTCFNhbiBKb3Nl
-MRUwEwYDVQQKEwxhcGlpbnNwZWN0b3IxHTAbBgNVBAsTFFNpbXBsZUFjaVVpTG9n
-U2VydmVyMSowKAYDVQQDEyFTaW1wbGVBY2lVaUxvZ1NlcnZlci5hcGlpbnNwZWN0
-b3IxHjAcBgkqhkiG9w0BCQEWD210aW1tQGNpc2NvLmNvbYIJALUh5RwHQhJoMAwG
-A1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADgYEABPx5cxBNOjWOxZbiRVfpzKac
-MKs4tFNtEmilAY7kvNouGaSl1Yw2fCpGXjstOG0+SxPy34YgeQSVOGQI1KXhd7vk
-nALqxrKiP2rzpZveBkjq5voRpFw2creEXyt76EKQgwRHYJP60Vu3bYnYNoFHdUwE
-TOBaHjC6ZZLRd77dd3s=
+MIICpjCCAY4CCQCcTR73pIOU9zANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQDDAox
+MC4xLjEuMjAwMB4XDTIyMDQxOTIxMzc1MFoXDTIzMDQxOTIxMzc1MFowFTETMBEG
+A1UEAwwKMTAuMS4xLjIwMDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+AJzfTo2sXr2CUeo/uakQDYCCpRvN1SM/tzAAJkzkJHG2oMSTCB1f2JQzKGLbTwKR
+8nQaUFDaX6sRs9f+YWppD4rBEXvq7FZAAmHaNrpxztjWh1wTzu7CZ0C69zOTxtVr
+APyuhRscfjT0uBQ7viuqI5sDXRQFHLxCK2J9eJYN0M5p+nwE3C3pKGupS7i60haK
+bMpM8wdp077MtMLLxEjYEbWDx2c9rZMrS79dsmZ0g5rBsXznPUZYLhWJ/AHYsO1E
+CBs5LLR/Ju4wbwvOuqzqKwac0kJubGRu1HDabmAmdItAMHSCx6ATTO5nwiNJoHJx
+LvcOGel4YAl6l5TwNVgOJMsCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAY7ImvdXl
+NPoqb91eW2CF9zi0z+YJSghnMTCnvF25vMky90p43KqaILsvYaMAZWMxw1kbmLc9
+AHdrNKqrIj73SMpSocroNG9SQyDiPguEY+FgORa+4SRmeer73c9mboM0FPAJd63E
+jk6Ef0Bmlh0vd40vkFcp6z5IKbbFxZq1iVcK05THa9OfO4x57cGzcXGP8BIF79Iq
+jmZaSabR2Qg9u+aazMBy4FCnZDZvQtkd60Mf+Jq5HBKruwyRhrwoULx+QdAMnuDF
+D7Q2i301zlng06OxKn+fAlRB9tA3grQECLR17lEEE+5zEWeQ2cKMc0kB/iYQpsDO
+DeoR995oqt/VWQ==
 -----END CERTIFICATE-----
 """
 
 
 class ApicParseResult(namedtuple('ApicParseResult',
                                  'scheme netloc path params query fragment'),
-                      ResultMixin):
+                      ResultBase):
 
     """ApicParseResult class.
 
@@ -317,9 +321,9 @@ def POST(**kwargs):  # pylint:disable=invalid-name
     """Process a POST logging message."""
     cobra_str = process_post(kwargs['data']['url'], kwargs['data']['payload'])
     logging_str = "POST URL: %s\nPOST Payload:\n%s\nSDK:\n\n%s"
-    logging.debug(logging_str, kwargs['data']['url'], 
-                  kwargs['data']['payload'], cobra_str)
 
+    logging.info(logging_str, kwargs['data']['url'], 
+                  kwargs['data']['payload'], cobra_str)
 
 def EventChannelMessage(**kwargs):  # pylint:disable=C0103,W0613
     """Process an event channel logging message."""
@@ -341,7 +345,7 @@ def start_server(args):
                 os.unlink(cert)
             except OSError:  # pylint:disable=pointless-except
                 pass
-        print "Exiting..."
+        print("Exiting...")
         sys.exit(0)
 
     http_server = None
@@ -507,7 +511,7 @@ def main():
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - \n%(message)s')
 
     if args.exclude:

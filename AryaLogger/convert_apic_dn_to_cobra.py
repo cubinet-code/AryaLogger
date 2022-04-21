@@ -18,15 +18,19 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from __future__ import print_function
 
-from urlparse import urlparse, ResultMixin
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from urllib.parse import urlparse
 from collections import OrderedDict, namedtuple
 from cobra.mit.naming import Dn
 
 
 class ApicParseResult(namedtuple('ApicParseResult',
                                  'scheme netloc path params query fragment'),
-                      ResultMixin):
+                      urlparse.ResultBase):
 
     """ApicParseResult.
 
@@ -125,16 +129,16 @@ def convert_dn_to_cobra(dn_str):
         dn_dict[rn_str]['className'] = rn_obj.meta.className
         dn_dict[rn_str]['parentMoOrDn'] = parent_mo_or_dn
         parent_mo_or_dn = rn_obj.meta.moClassName
-    for arn in dn_dict.items():
+    for arn in list(dn_dict.items()):
         if len(list(arn[1]['namingVals'])) > 0:
             nvals = [str(val) for val in arn[1]['namingVals']]
             nvals_str = ", '" + ", ".join(nvals) + "'"
         else:
             nvals_str = ""
-        print "{0} = {1}({2}{3})".format(arn[1]['moClassName'],
+        print("{0} = {1}({2}{3})".format(arn[1]['moClassName'],
                                          arn[1]['className'],
                                          arn[1]['parentMoOrDn'],
-                                         nvals_str)
+                                         nvals_str))
 
 
 if __name__ == '__main__':
@@ -152,4 +156,4 @@ if __name__ == '__main__':
     URL = 'https://10.122.254.211/api/node/mo/uni/tn-mgmt/mgmtp-default/oob' + \
           '-default.json'
     convert_dn_to_cobra(apic_rest_urlparse(URL).dn_or_class)
-    print
+    print()
